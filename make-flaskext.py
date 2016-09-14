@@ -8,7 +8,7 @@
     :copyright: (c) 2010 by Armin Ronacher.
     :license: BSD, see LICENSE for more details.
 """
-from __future__ import with_statement
+
 import re
 import os
 import sys
@@ -17,14 +17,14 @@ from datetime import datetime
 from subprocess import Popen
 
 from jinja2 import Template
-from werkzeug import url_quote
+from werkzeug.urls import url_quote
 
 
 _sep_re = re.compile(r'[\s.,;_-]+')
 
 
 SPHINX_THEME_REPO = 'git://github.com/mitsuhiko/flask-sphinx-themes.git'
-FILE_HEADER_TEMPLATE = Template(u'''\
+FILE_HEADER_TEMPLATE = Template('''\
 # -*- coding: utf-8 -*-
 """
     {{ module }}
@@ -36,7 +36,7 @@ FILE_HEADER_TEMPLATE = Template(u'''\
     :license: {{ license }}, see LICENSE for more details.
 """
 ''')
-MIT_LICENSE_TEMPLATE = Template(u'''\
+MIT_LICENSE_TEMPLATE = Template('''\
 Copyright (c) {{ year }} {{ name }}
 
 Permission is hereby granted, free of charge, to any person
@@ -60,7 +60,7 @@ WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 ''')
-BSD_LICENSE_TEMPLATE = Template(u'''\
+BSD_LICENSE_TEMPLATE = Template('''\
 Copyright (c) {{ year }} by {{ name }}.
 
 Some rights reserved.
@@ -94,7 +94,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ''')
 
-SETUP_PY_TEMPLATE = Template(u'''\
+SETUP_PY_TEMPLATE = Template('''\
 """
 {{ name }}
 {{ '-' * name|length }}
@@ -155,7 +155,7 @@ def prompt(name, default=None):
     prompt = name + (default and ' [%s]' % default or '')
     prompt += name.endswith('?') and ' ' or ': '
     while True:
-        rv = raw_input(prompt)
+        rv = input(prompt)
         if rv:
             return rv
         if default is not None:
@@ -195,10 +195,10 @@ def guess_package(name):
 
 class Extension(object):
 
-    def __init__(self, name, shortname, author, output_folder, vcs, vcs_host,
+    def __init__(self, name, short_name, author, output_folder, vcs, vcs_host,
                  license, with_sphinx, sphinx_theme):
         self.name = name
-        self.shortname = shortname
+        self.short_name = short_name
         self.author = author
         self.output_folder = output_folder
         self.vcs = vcs
@@ -216,35 +216,35 @@ class Extension(object):
             f.write("__import__('pkg_resources')."
                     "declare_namespace(__name__)\n")
         with open(os.path.join(self.output_folder, 'flaskext',
-                               self.shortname + '.py'), 'w') as f:
+                               self.short_name + '.py'), 'w') as f:
             f.write(FILE_HEADER_TEMPLATE.render(
-                module='flaskext.' + self.shortname,
+                module='flaskext.' + self.short_name,
                 year=datetime.utcnow().year,
                 name=self.author,
                 license=self.license
-            ).encode('utf-8') + '\n')
+            ) + '\n')
         with open(os.path.join(self.output_folder, 'LICENSE'), 'w') as f:
             if self.license == 'BSD':
                 f.write(BSD_LICENSE_TEMPLATE.render(
                     year=datetime.utcnow().year,
                     name=self.author
-                ).encode('utf-8') + '\n')
+                ) + '\n')
             elif self.license == 'MIT':
                 f.write(MIT_LICENSE_TEMPLATE.render(
                     year=datetime.utcnow().year,
                     name=self.author
-                ).encode('utf-8') + '\n')
+                ) + '\n')
         with open(os.path.join(self.output_folder, 'README'), 'w') as f:
             f.write(self.name + '\n\nDescription goes here\n')
         with open(os.path.join(self.output_folder, 'setup.py'), 'w') as f:
             f.write(SETUP_PY_TEMPLATE.render(
                 name=self.name,
                 urlname=url_quote(self.name),
-                package='flaskext.' + self.shortname,
+                package='flaskext.' + self.short_name,
                 author=self.author,
                 vcs_host=self.vcs_host,
                 license=self.license
-            ).encode('utf-8') + '\n')
+            ) + '\n')
 
     def init_vcs(self):
         if self.vcs == 'hg':
@@ -264,13 +264,13 @@ class Extension(object):
     def init_sphinx(self):
         if not self.with_sphinx:
             return
-        docdir = os.path.join(self.output_folder, 'docs')
-        os.makedirs(docdir)
-        Popen(['sphinx-quickstart'], cwd=docdir).wait()
-        if os.path.isfile(os.path.join(docdir, 'source', 'conf.py')):
-            sphinx_conf_py = os.path.join(docdir, 'source', 'conf.py')
+        doc_dir = os.path.join(self.output_folder, 'docs')
+        os.makedirs(doc_dir)
+        Popen(['sphinx-quickstart'], cwd=doc_dir).wait()
+        if os.path.isfile(os.path.join(doc_dir, 'source', 'conf.py')):
+            sphinx_conf_py = os.path.join(doc_dir, 'source', 'conf.py')
         else:
-            sphinx_conf_py = os.path.join(docdir, 'conf.py')
+            sphinx_conf_py = os.path.join(doc_dir, 'conf.py')
         with open(sphinx_conf_py, 'r') as f:
             config = f.read().splitlines()
             for idx, line in enumerate(config):
@@ -285,24 +285,43 @@ class Extension(object):
         with open(sphinx_conf_py, 'w') as f:
             f.write('\n'.join(config))
         if not self.vcs == 'git':
-            print 'Don\'t forget to put the sphinx themes into docs/_themes!'
+            print('Don\'t forget to put the sphinx themes into docs/_themes!')
+
+
+def get_name():
+    name = prompt('Extension Name (human readable)')
+    if 'flask' in name.lower():
+        return name
+    if prompt_bool('Warning: It\'s recommended that the extension name '
+                   'contains the word "Flask". Continue'):
+        return name
+    else:
+        get_name()
+
+
+def get_folder(output_folder):
+    folder = prompt('Output folder', default=output_folder)
+    if os.path.isfile(folder):
+        print('Error: output folder is a file')
+        return get_folder(output_folder)
+    elif os.path.isdir(folder) and os.listdir(folder):
+        if prompt_bool('Warning: output folder is not empty. Continue'):
+            return folder
+        else:
+            return get_folder(output_folder)
+    else:
+        return folder
 
 
 def main():
     if len(sys.argv) not in (1, 2):
-        print 'usage: make-flaskext.py [output-folder]'
+        print('usage: make-flaskext.py [output-folder]')
         return
-    print 'Welcome to the Flask Extension Creator Wizard'
-    print
+    print('Welcome to the Flask Extension Creator Wizard')
+    print()
+    name = get_name()
 
-    while 1:
-        name = prompt('Extension Name (human readable)')
-        if 'flask' in name.lower():
-            break
-        if prompt_bool('Warning: It\'s recommended that the extension name '
-                       'contains the word "Flask". Continue'):
-            break
-    shortname = prompt('Shortname (without flaskext.)', default=guess_package(name))
+    short_name = prompt('Shortname (without flaskext.)', default=guess_package(name))
     author = prompt('Author', default=getpass.getuser())
     license_rv = prompt_choices('License', ('bsd', 'mit', 'none'))
     if license_rv == 'bsd':
@@ -316,28 +335,22 @@ def main():
     if use_sphinx:
         sphinx_theme = prompt('Sphinx theme to use', default='flask_small')
     vcs = prompt_choices('Which VCS to use', ('none', 'git', 'hg'))
-    if vcs is None:
-        vcs_host = None
-    elif vcs == 'git':
+
+    vcs_host = None
+    if vcs == 'git':
         vcs_host = prompt_choices('Which git host to use',
                                   ('none', 'github', 'gitorious'))
     elif vcs == 'hg':
         vcs_host = prompt_choices('Which Mercurial host to use',
                                   ('none', 'bitbucket'))
 
-    output_folder = len(sys.argv) == 2 and sys.argv[1] or ('flask-%s' % shortname)
-    while 1:
-        folder = prompt('Output folder', default=output_folder)
-        if os.path.isfile(folder):
-            print 'Error: output folder is a file'
-        elif os.path.isdir(folder) and os.listdir(folder):
-            if prompt_bool('Warning: output folder is not empty. Continue'):
-                break
-        else:
-            break
+    output_folder = len(sys.argv) == 2 and sys.argv[1] or ('flask-%s' % short_name)
+
+    folder = get_folder(output_folder)
+
     output_folder = os.path.abspath(folder)
 
-    ext = Extension(name, shortname, author, output_folder, vcs, vcs_host,
+    ext = Extension(name, short_name, author, output_folder, vcs, vcs_host,
                     license, use_sphinx, sphinx_theme)
     ext.make_folder()
     ext.create_files()
