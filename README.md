@@ -1,5 +1,5 @@
-Flask Extension Wizard
-======================
+Flask Extension Wizard (Py3)
+============================
 
 A script that can generate Flask Extensions.  Just make sure to
 have Flask installed before running that script.  It will prompt
@@ -26,3 +26,4 @@ $ wget http://bit.ly/flask-extension-wizard
 $ python make-flaskext.py
 
 Then follow the instructions.
+
